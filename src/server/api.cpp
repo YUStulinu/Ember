@@ -618,6 +618,35 @@ void register_api(http::Server &server, ApiContext &ctx) {
     server.route("GET", "/metrics", [&ctx](const http::Request &, http::Response &res) {
         res.respond(200, "text/plain; version=0.0.4", prometheus(ctx));
     });
+    ctx.history = std::make_unique<ThroughputHistory>();
+    ctx.history->thread = std::thread([&ctx] {
+        ThroughputHistory &h = *ctx.history;
+        while (!h.stop) {
+            EngineStats s = ctx.engine.stats();
+            const bool busy = s.running > 0 || s.waiting > 0;
+            {
+                std::lock_guard<std::mutex> lock(h.mutex);
+                h.samples.emplace_back(busy ? static_cast<float>(s.tokens_per_second) : 0.0f,
+                                       busy ? static_cast<float>(s.prefill_per_second) : 0.0f);
+                if (h.samples.size() > ThroughputHistory::kSamples) h.samples.pop_front();
+            }
+            for (int i = 0; i < 5 && !h.stop; i++) std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+    });
+    server.route("GET", "/api/history", [&ctx](const http::Request &, http::Response &res) {
+        json::Array gen, pre;
+        {
+            std::lock_guard<std::mutex> lock(ctx.history->mutex);
+            for (const auto &[g, p] : ctx.history->samples) {
+                gen.push_back(static_cast<double>(g));
+                pre.push_back(static_cast<double>(p));
+            }
+        }
+        Value v;
+        v.set("gen", std::move(gen));
+        v.set("pre", std::move(pre));
+        res.respond(200, "application/json", v.dump());
+    });
     server.route("GET", "/api/stats", [&ctx](const http::Request &, http::Response &res) {
         res.respond(200, "application/json", stats_json(ctx).dump());
     });

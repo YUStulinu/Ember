@@ -16,15 +16,30 @@ llama.cpp the `S_TG` column of `llama-batched-bench` with 64-token prompts and
 128 generated tokens per sequence; for Ember the "generation" column of
 `ember bench` with the same shape.
 
-COMPARE_TABLE
+| Format (Ember / llama.cpp) | Metric | Ember | llama.cpp | Ratio |
+|---|---|---:|---:|---:|
+| f16 / F16 | prefill, 512 tokens (t/s) | 3,741 | 5,166 | **0.72x** |
+| f16 / F16 | generation, 1 sequence (t/s) | 55 | 11 | **4.94x** |
+| f16 / F16 | generation, 8 sequences (t/s) | 425 | 25 | **17.32x** |
+| f16 / F16 | generation, 32 sequences (t/s) | 1,186 | 198 | **6.01x** |
+| int8 / Q8_0 | prefill, 512 tokens (t/s) | 3,059 | 4,031 | **0.76x** |
+| int8 / Q8_0 | generation, 1 sequence (t/s) | 104 | 85 | **1.22x** |
+| int8 / Q8_0 | generation, 8 sequences (t/s) | 766 | 406 | **1.89x** |
+| int8 / Q8_0 | generation, 32 sequences (t/s) | 2,067 | 1,031 | **2.01x** |
+| int4 / Q4_K_M | prefill, 512 tokens (t/s) | 3,128 | 3,656 | **0.86x** |
+| int4 / Q4_K_M | generation, 1 sequence (t/s) | 126 | 107 | **1.18x** |
+| int4 / Q4_K_M | generation, 8 sequences (t/s) | 900 | 342 | **2.63x** |
+| int4 / Q4_K_M | generation, 32 sequences (t/s) | 1,578 | 994 | **1.59x** |
 
 Notes:
 
 - Ember's `int4` keeps q/k/v, the down projection and the output layer in int8
   (1275 MiB of weights); Q4_K_M is a little smaller (1.03 GiB), so this row
   compares recipes of similar quality rather than identical sizes.
-- llama.cpp's F16 decode is unusually slow on this GPU for batches of 8; that
-  is what it measured here, repeatedly.
+- llama.cpp's batched F16 decode measured abnormally slow on this GPU (11 t/s
+  for one sequence, while `llama-bench tg128` gives 55 t/s for the same model);
+  the f16 rows are therefore not a fair comparison and are shown for
+  completeness. The int8 and int4 rows are the meaningful ones.
 
 ## Ember alone
 

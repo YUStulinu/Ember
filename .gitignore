@@ -11,6 +11,7 @@ CMakeUserPresets.json
 /eval/
 /tests/golden/Qwen3-*/
 /bench/results/*.raw
+/bench/compare.log
 
 # Python
 /reference/.venv/

@@ -14,7 +14,7 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #131210; --panel: #1c1b18; --ink: #ece8e1; --muted: #9a948a; --line: #2e2c28;
-    --accent: #ff7a45; --accent-soft: #3a2117; --cool: #6aa3ff; --cool-soft: #1b2a44; --free: #272521;
+    --accent: #ff7a45; --accent-soft: #3a2117; --cool: #6aa3ff; --cool-soft: #1b2a44; --free: #34312c;
     --good: #5cc28a;
   }
 }
@@ -40,6 +40,7 @@ main { display: grid; grid-template-columns: repeat(12, 1fr); gap: 14px; padding
 .reqs { grid-column: span 5; }
 .chat { grid-column: span 12; }
 canvas { width: 100%; display: block; }
+#chart { height: 190px; }
 .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 8px; }
 .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
 table { width: 100%; border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
@@ -201,10 +202,6 @@ function render(s) {
   $("t-batch").textContent = fmt(s.batch_tokens);
   $("kv-desc").textContent = `${s.kv.blocks} pages of ${s.kv.block_size} tokens (${fmt(s.kv.blocks * s.kv.block_size)} tokens)`;
 
-  const busy = s.running > 0 || s.waiting > 0;
-  history.gen.push(busy ? s.tokens_per_second : 0);
-  history.pre.push(busy ? s.prefill_per_second : 0);
-  for (const k in history) if (history[k].length > HISTORY) history[k].shift();
   drawChart();
   drawKv(s.kv);
 
@@ -224,6 +221,17 @@ function render(s) {
       (s.requests.length > 14 ? `<tr><td colspan="7">&hellip; and ${s.requests.length - 14} more</td></tr>` : "") + `</table>`;
   }
 }
+
+// The server samples throughput twice a second; the chart shows its history.
+async function pollHistory() {
+  try {
+    const h = await (await fetch("/api/history")).json();
+    history.gen = h.gen; history.pre = h.pre;
+    drawChart();
+  } catch (e) { /* the next poll retries */ }
+}
+pollHistory();
+setInterval(pollHistory, 1000);
 
 function connect() {
   const es = new EventSource("/api/events");

@@ -55,7 +55,17 @@ flash attention on). Generation throughput is tokens per second after the
 prompts are read (llama.cpp's `S_TG`), median of 3 runs, engines alternated
 with cool-down pauses. Full tables and method: [docs/BENCHMARKS.md](docs/BENCHMARKS.md).
 
-RESULTS_TABLE
+| Format (Ember / llama.cpp) | Prefill, 512 tokens | 1 sequence | 8 sequences | 32 sequences |
+|---|---:|---:|---:|---:|
+| int8 / Q8_0 | 3,059 / 4,031 t/s (0.76x) | **104** / 85 t/s (1.22x) | **766** / 406 t/s (1.89x) | **2,067** / 1,031 t/s (2.01x) |
+| int4 / Q4_K_M | 3,128 / 3,656 t/s (0.86x) | **126** / 107 t/s (1.18x) | **900** / 343 t/s (2.63x) | **1,578** / 994 t/s (1.59x) |
+| f16 / F16 | 3,741 / 5,166 t/s (0.72x) | 55 / 55 t/s* (1.0x) | 425 t/s | 1,186 t/s |
+
+Ember generates faster - most of all with many concurrent sequences, where
+continuous batching and the tensor-core GEMV pay off - while llama.cpp reads
+prompts faster (its prefill GEMMs are more mature). \* llama.cpp's batched F16
+decode measured abnormally slow on this GPU (11 t/s); the 55 t/s is its
+`llama-bench tg128` figure.
 
 Quality of the formats, perplexity on held-out text (lower is better):
 
@@ -64,7 +74,7 @@ Quality of the formats, perplexity on held-out text (lower is better):
 | f16 | 3282 MiB | 13.20 | 13.03 |
 | int8 | 1752 MiB | 13.09 | 12.94 |
 | int4 (Ember's recipe) | 1275 MiB | 13.19 | 13.70 |
-| int4, every matrix | 1050 MiB | 19.76 | 22.32 |
+| int4 everywhere but the output layer | 1012 MiB | 19.76 | 22.32 |
 
 The f16 model matches PyTorch to within 0.1% relative error after all 28
 layers, and generates the same greedy tokens.
