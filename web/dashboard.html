@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ember</title>
+<style>
+:root {
+  --bg: #f6f5f2; --panel: #ffffff; --ink: #1d1b18; --muted: #6f6a62; --line: #e4e1da;
+  --accent: #e2572b; --accent-soft: #fbe3d8; --cool: #2f6fd6; --cool-soft: #dce8fb; --free: #ece9e3;
+  --good: #2e8b57;
+  --mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #131210; --panel: #1c1b18; --ink: #ece8e1; --muted: #9a948a; --line: #2e2c28;
+    --accent: #ff7a45; --accent-soft: #3a2117; --cool: #6aa3ff; --cool-soft: #1b2a44; --free: #272521;
+    --good: #5cc28a;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+header { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; padding: 18px 24px 10px; }
+header h1 { margin: 0; font-size: 22px; letter-spacing: -0.02em; }
+header h1 span { color: var(--accent); }
+.meta { color: var(--muted); font-size: 13px; }
+.pill { display: inline-block; padding: 1px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-weight: 600; font-size: 12px; }
+#status { margin-left: auto; font-size: 12px; color: var(--muted); }
+#status.live::before { content: "●"; color: var(--good); margin-right: 6px; }
+main { display: grid; grid-template-columns: repeat(12, 1fr); gap: 14px; padding: 6px 24px 28px; max-width: 1500px; margin: 0 auto; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; min-width: 0; }
+.card h2 { margin: 0 0 10px; font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.tiles { grid-column: span 12; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; }
+.tile .v { font-size: 26px; font-weight: 650; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.tile .v small { font-size: 13px; color: var(--muted); font-weight: 500; margin-left: 3px; }
+.tile .l { color: var(--muted); font-size: 12px; }
+.chart { grid-column: span 8; }
+.mem { grid-column: span 4; }
+.kv { grid-column: span 7; }
+.reqs { grid-column: span 5; }
+.chat { grid-column: span 12; }
+canvas { width: 100%; display: block; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 8px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { color: var(--muted); font-weight: 600; font-size: 11.5px; }
+td.r, th.r { text-align: right; }
+.state { font-size: 11px; padding: 1px 7px; border-radius: 999px; }
+.state.decode { background: var(--accent-soft); color: var(--accent); }
+.state.prefill { background: var(--cool-soft); color: var(--cool); }
+.state.waiting { background: var(--free); color: var(--muted); }
+.empty { color: var(--muted); font-size: 13px; padding: 12px 0; }
+.bar { height: 10px; background: var(--free); border-radius: 6px; overflow: hidden; display: flex; margin: 6px 0 4px; }
+.bar > div { height: 100%; }
+.memrow { display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0; border-bottom: 1px solid var(--line); }
+.memrow:last-child { border-bottom: 0; }
+.memrow span:last-child { font-variant-numeric: tabular-nums; }
+#log { height: 300px; overflow-y: auto; padding: 4px 2px; }
+.msg { margin: 8px 0; padding: 10px 12px; border-radius: 10px; max-width: 85%; white-space: pre-wrap; word-wrap: break-word; }
+.msg.user { background: var(--cool-soft); margin-left: auto; }
+.msg.bot { background: var(--bg); border: 1px solid var(--line); }
+.msg .think { color: var(--muted); font-style: italic; border-left: 2px solid var(--line); padding-left: 8px; margin-bottom: 6px; }
+.msg .stats { color: var(--muted); font-size: 11.5px; margin-top: 6px; font-family: var(--mono); }
+form { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+textarea { flex: 1; min-width: 220px; resize: vertical; min-height: 44px; padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; }
+button { padding: 0 18px; border-radius: 10px; border: 0; background: var(--accent); color: white; font-weight: 600; cursor: pointer; min-height: 44px; }
+button:disabled { opacity: 0.5; cursor: default; }
+label.opt { display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: 12.5px; }
+@media (max-width: 1000px) { .chart, .mem, .kv, .reqs, .chat { grid-column: span 12; } main, header { padding-left: 16px; padding-right: 16px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1><span>&#9673;</span> Ember</h1>
+  <div class="meta"><span id="model">-</span> &middot; <span id="backend">-</span> &middot; <span class="pill" id="weights">-</span></div>
+  <div id="status">connecting&hellip;</div>
+</header>
+<main>
+  <section class="tiles">
+    <div class="card tile"><div class="v" id="t-gen">0<small>tok/s</small></div><div class="l">generation</div></div>
+    <div class="card tile"><div class="v" id="t-pre">0<small>tok/s</small></div><div class="l">prompt processing</div></div>
+    <div class="card tile"><div class="v" id="t-run">0</div><div class="l">running &middot; <span id="t-wait">0</span> waiting</div></div>
+    <div class="card tile"><div class="v" id="t-kv">0<small>%</small></div><div class="l">KV cache in use</div></div>
+    <div class="card tile"><div class="v" id="t-hit">0<small>%</small></div><div class="l">prompt tokens from cache</div></div>
+    <div class="card tile"><div class="v" id="t-ttft">-<small>ms</small></div><div class="l">time to first token</div></div>
+    <div class="card tile"><div class="v" id="t-step">-<small>ms</small></div><div class="l">step &middot; <span id="t-batch">0</span> tokens</div></div>
+  </section>
+
+  <section class="card chart">
+    <h2>Throughput, last 2 minutes</h2>
+    <canvas id="chart" height="190"></canvas>
+    <div class="legend"><span><i style="background:var(--accent)"></i>generated tokens/s</span><span><i style="background:var(--cool)"></i>prompt tokens/s</span></div>
+  </section>
+
+  <section class="card mem">
+    <h2>GPU memory</h2>
+    <div class="bar" id="membar"></div>
+    <div id="memrows"></div>
+  </section>
+
+  <section class="card kv">
+    <h2>KV cache &mdash; <span id="kv-desc">-</span></h2>
+    <canvas id="kvmap" height="170"></canvas>
+    <div class="legend"><span><i style="background:var(--accent)"></i>in use by a sequence</span><span><i style="background:var(--cool)"></i>cached prefix, reusable</span><span><i style="background:var(--free);outline:1px solid var(--line)"></i>free</span></div>
+  </section>
+
+  <section class="card reqs">
+    <h2>Requests</h2>
+    <div id="reqs"></div>
+  </section>
+
+  <section class="card chat">
+    <h2>Chat</h2>
+    <div id="log"></div>
+    <form id="form">
+      <textarea id="input" placeholder="Ask something&hellip; (Enter to send, Shift+Enter for a new line)"></textarea>
+      <label class="opt"><input type="checkbox" id="think"> think</label>
+      <button id="send">Send</button>
+    </form>
+  </section>
+</main>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const history = { gen: [], pre: [] };
+const HISTORY = 240;  // samples (2 per second)
+let peak = 10;
+
+function fmt(n, digits = 0) {
+  if (!isFinite(n)) return "-";
+  return n >= 10000 ? (n / 1000).toFixed(1) + "k" : n.toFixed(digits);
+}
+
+function sizeCanvas(c) {
+  const dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight || c.height;
+  if (c.width !== Math.round(w * dpr)) { c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); }
+  const ctx = c.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return [ctx, w, h];
+}
+
+function drawChart() {
+  const [ctx, w, h] = sizeCanvas($("chart"));
+  ctx.clearRect(0, 0, w, h);
+  const top = Math.max(peak, ...history.gen, ...history.pre) * 1.15;
+  peak = Math.max(10, top * 0.98);
+  ctx.strokeStyle = css("--line"); ctx.fillStyle = css("--muted"); ctx.lineWidth = 1; ctx.font = "11px system-ui";
+  for (let i = 0; i <= 4; i++) {
+    const y = 8 + (h - 24) * i / 4;
+    ctx.beginPath(); ctx.moveTo(40, y); ctx.lineTo(w, y); ctx.stroke();
+    ctx.fillText(fmt(top * (1 - i / 4)), 2, y + 4);
+  }
+  const plot = (data, color) => {
+    if (data.length < 2) return;
+    ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath();
+    data.forEach((v, i) => {
+      const x = 40 + (w - 42) * (i + HISTORY - data.length) / (HISTORY - 1);
+      const y = 8 + (h - 24) * (1 - v / top);
+      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    });
+    ctx.stroke();
+  };
+  plot(history.pre, css("--cool"));
+  plot(history.gen, css("--accent"));
+}
+
+function drawKv(kv) {
+  const c = $("kvmap");
+  const n = kv.map.length;
+  const [ctx, w] = sizeCanvas(c);
+  // Square cells that fill the width; height follows.
+  let cell = Math.max(3, Math.floor(Math.sqrt((w * 170) / Math.max(n, 1))));
+  const cols = Math.max(1, Math.floor(w / cell));
+  const rows = Math.ceil(n / cols);
+  const h = Math.max(40, rows * cell);
+  if (c.clientHeight !== h) { c.style.height = h + "px"; }
+  const [ctx2] = sizeCanvas(c);
+  const colors = [css("--free"), css("--cool"), css("--accent")];
+  ctx2.clearRect(0, 0, w, h);
+  for (let i = 0; i < n; i++) {
+    ctx2.fillStyle = colors[kv.map.charCodeAt(i) - 48];
+    ctx2.fillRect((i % cols) * cell, Math.floor(i / cols) * cell, cell - 1, cell - 1);
+  }
+}
+
+function render(s) {
+  $("model").textContent = s.model;
+  $("backend").textContent = s.backend;
+  $("weights").textContent = s.weights;
+  $("t-gen").innerHTML = fmt(s.tokens_per_second) + "<small>tok/s</small>";
+  $("t-pre").innerHTML = fmt(s.prefill_per_second) + "<small>tok/s</small>";
+  $("t-run").textContent = s.running;
+  $("t-wait").textContent = s.waiting;
+  $("t-kv").innerHTML = fmt(100 * s.kv.used / Math.max(1, s.kv.blocks)) + "<small>%</small>";
+  const prompt = s.prompt_tokens + s.cached_tokens;
+  $("t-hit").innerHTML = fmt(prompt ? 100 * s.cached_tokens / prompt : 0) + "<small>%</small>";
+  $("t-ttft").innerHTML = (s.ttft_ms ? fmt(s.ttft_ms) : "-") + "<small>ms</small>";
+  $("t-step").innerHTML = (s.step_ms ? fmt(s.step_ms, 1) : "-") + "<small>ms</small>";
+  $("t-batch").textContent = fmt(s.batch_tokens);
+  $("kv-desc").textContent = `${s.kv.blocks} pages of ${s.kv.block_size} tokens (${fmt(s.kv.blocks * s.kv.block_size)} tokens)`;
+
+  const busy = s.running > 0 || s.waiting > 0;
+  history.gen.push(busy ? s.tokens_per_second : 0);
+  history.pre.push(busy ? s.prefill_per_second : 0);
+  for (const k in history) if (history[k].length > HISTORY) history[k].shift();
+  drawChart();
+  drawKv(s.kv);
+
+  const m = s.memory, total = m.device_total_mib || (m.weights_mib + m.kv_cache_mib + m.buffers_mib);
+  const other = Math.max(0, total - m.device_free_mib - m.weights_mib - m.kv_cache_mib - m.buffers_mib);
+  const parts = [["weights", m.weights_mib, "--accent"], ["KV cache", m.kv_cache_mib, "--cool"], ["buffers", m.buffers_mib, "--muted"], ["other processes", other, "--line"]];
+  $("membar").innerHTML = parts.map(([, v, c]) => `<div style="width:${100 * v / total}%;background:var(${c})"></div>`).join("");
+  $("memrows").innerHTML = parts.map(([n, v]) => `<div class="memrow"><span>${n}</span><span>${fmt(v)} MiB</span></div>`).join("") +
+    `<div class="memrow"><span>free</span><span>${fmt(m.device_free_mib)} MiB of ${fmt(total)}</span></div>`;
+
+  if (!s.requests.length) {
+    $("reqs").innerHTML = `<div class="empty">No requests right now. Send one from the chat below, or with curl.</div>`;
+  } else {
+    $("reqs").innerHTML = `<table><tr><th>#</th><th>state</th><th>source</th><th class="r">prompt</th><th class="r">cached</th><th class="r">generated</th><th class="r">pages</th></tr>` +
+      s.requests.slice(0, 14).map((r) => `<tr><td>${r.id}</td><td><span class="state ${r.state}">${r.state}</span></td><td>${r.tag || ""}</td>` +
+        `<td class="r">${r.prompt}</td><td class="r">${r.cached}</td><td class="r">${r.generated} / ${r.max_tokens}</td><td class="r">${r.blocks}</td></tr>`).join("") +
+      (s.requests.length > 14 ? `<tr><td colspan="7">&hellip; and ${s.requests.length - 14} more</td></tr>` : "") + `</table>`;
+  }
+}
+
+function connect() {
+  const es = new EventSource("/api/events");
+  es.onopen = () => { $("status").textContent = "live"; $("status").className = "live"; };
+  es.onmessage = (e) => render(JSON.parse(e.data));
+  es.onerror = () => { $("status").textContent = "reconnecting…"; $("status").className = ""; };
+}
+connect();
+window.addEventListener("resize", drawChart);
+
+// ---- chat -------------------------------------------------------------------------
+const conversation = [];
+function addMessage(cls) {
+  const div = document.createElement("div");
+  div.className = "msg " + cls;
+  $("log").appendChild(div);
+  return div;
+}
+async function send(text) {
+  conversation.push({ role: "user", content: text });
+  addMessage("user").textContent = text;
+  const bot = addMessage("bot");
+  const think = document.createElement("div"); think.className = "think"; think.style.display = "none";
+  const body = document.createElement("div");
+  const stats = document.createElement("div"); stats.className = "stats";
+  bot.append(think, body, stats);
+  $("send").disabled = true;
+  const t0 = performance.now();
+  let first = 0, pieces = 0, answer = "";
+  try {
+    const res = await fetch("/v1/chat/completions", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: conversation, stream: true, max_tokens: 1024,
+                             stream_options: { include_usage: true },
+                             chat_template_kwargs: { enable_thinking: $("think").checked } }),
+    });
+    if (!res.ok) throw new Error((await res.json()).error?.message || res.statusText);
+    const reader = res.body.getReader(), dec = new TextDecoder();
+    let buf = "", usage = null;
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let i;
+      while ((i = buf.indexOf("\n\n")) >= 0) {
+        const line = buf.slice(0, i).trim(); buf = buf.slice(i + 2);
+        if (!line.startsWith("data:")) continue;
+        const data = line.slice(5).trim();
+        if (data === "[DONE]") continue;
+        const j = JSON.parse(data);
+        if (j.usage) usage = j.usage;
+        const d = j.choices?.[0]?.delta || {};
+        if (d.reasoning_content) { think.style.display = "block"; think.textContent += d.reasoning_content; }
+        if (d.content) { answer += d.content; body.textContent = answer; }
+        if (d.content || d.reasoning_content) { pieces++; if (!first) first = performance.now(); }
+        $("log").scrollTop = $("log").scrollHeight;
+      }
+    }
+    const secs = (performance.now() - first) / 1000;
+    const n = usage ? usage.completion_tokens : pieces;
+    stats.textContent = `${n} tokens · first token ${fmt(first - t0)} ms · ${fmt(n > 1 && secs > 0 ? (n - 1) / secs : 0, 1)} tok/s` +
+      (usage ? ` · prompt ${usage.prompt_tokens} (${usage.prompt_tokens_details.cached_tokens} cached)` : "");
+    conversation.push({ role: "assistant", content: answer });
+  } catch (err) {
+    body.textContent = "Error: " + err.message;
+    conversation.pop();
+  }
+  $("send").disabled = false;
+}
+$("form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const text = $("input").value.trim();
+  if (!text || $("send").disabled) return;
+  $("input").value = "";
+  send(text);
+});
+$("input").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("form").requestSubmit(); }
+});
+</script>
+</body>
+</html>

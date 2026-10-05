@@ -121,8 +121,27 @@ endif()
 # ---------------------------------------------------------------------------
 # Programs and tests
 # ---------------------------------------------------------------------------
+# The dashboard is compiled into the binary, so `ember serve` is one file.
+set(EMBER_DASHBOARD_CPP ${CMAKE_CURRENT_BINARY_DIR}/dashboard_html.cpp)
+add_custom_command(
+  OUTPUT ${EMBER_DASHBOARD_CPP}
+  COMMAND ${CMAKE_COMMAND} -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/web/dashboard.html -DOUTPUT=${EMBER_DASHBOARD_CPP}
+          -DSYMBOL=dashboard_html -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed.cmake
+  DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/web/dashboard.html ${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed.cmake
+  COMMENT "Embedding the dashboard")
+
+add_library(ember_server STATIC
+  src/server/http.cpp
+  src/server/text_stream.cpp
+  src/server/api.cpp
+  ${EMBER_DASHBOARD_CPP}
+)
+target_link_libraries(ember_server PUBLIC ember_core)
+target_compile_options(ember_server PRIVATE ${EMBER_CXX_WARNINGS})
+
 add_executable(ember tools/ember_main.cpp src/server/server.cpp)
 target_include_directories(ember PRIVATE tools)
+target_link_libraries(ember PRIVATE ember_server)
 target_link_libraries(ember PRIVATE ember_core)
 target_compile_options(ember PRIVATE ${EMBER_CXX_WARNINGS})
 
@@ -135,7 +154,7 @@ add_executable(ember_tests
   tests/test_cuda.cpp
   tests/test_engine.cpp
 )
-target_link_libraries(ember_tests PRIVATE ember_core)
+target_link_libraries(ember_tests PRIVATE ember_server)
 target_include_directories(ember_tests PRIVATE tests)
 target_compile_options(ember_tests PRIVATE ${EMBER_CXX_WARNINGS})
 target_compile_definitions(ember_tests PRIVATE EMBER_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")

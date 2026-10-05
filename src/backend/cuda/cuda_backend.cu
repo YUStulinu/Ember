@@ -252,7 +252,8 @@ public:
     }
 
 private:
-    static constexpr int kMaxSplits = 32, kMinSplit = 128, kMaxSplitTokens = 64;
+    // Decode attention splits long contexts into fixed chunks of kSplitLen keys.
+    static constexpr int kSplitLen = 512, kMaxSplits = 80, kMaxSplitTokens = 64;
     static constexpr int kFlashMinTokens = 16;  // a sequence with this many new tokens uses the prefill kernel
 
     static double mib(size_t b) { return static_cast<double>(b) / (1 << 20); }
@@ -268,17 +269,18 @@ private:
 
     static constexpr int kGraphMaxTokens = 64;
 
-    // Decode attention split: enough blocks to fill the GPU, splitting long contexts.
+    // Decode attention split. The chunks are fixed (keys [0, 512), [512, 1024), ...)
+    // and merged in a fixed order, so a token's attention is computed the same way
+    // whatever else is in the batch: decoding is batch-invariant (a request yields
+    // the same tokens alone or among others, and speculative decoding reproduces
+    // plain decoding exactly). Only beyond 64 decode tokens per step, or contexts
+    // over 40k, does it fall back to one pass per (token, head).
     void choose_splits(Plan &p, int max_ctx) const {
-        const int blocks = p.decode_count * cfg_.n_kv_heads, target = 2 * sm_count();
-        p.splits = 1;
-        p.split_len = std::max(kBlockSize, (max_ctx + kBlockSize - 1) / kBlockSize * kBlockSize);
-        if (p.decode_count > 0 && blocks < target && p.decode_count <= kMaxSplitTokens && max_ctx > 2 * kMinSplit) {
-            int splits = std::min({(target + blocks - 1) / blocks, kMaxSplits, (max_ctx + kMinSplit - 1) / kMinSplit});
-            if (splits > 1) {
-                p.splits = splits;
-                p.split_len = ((max_ctx + splits - 1) / splits + kBlockSize - 1) / kBlockSize * kBlockSize;
-            }
+        p.split_len = kSplitLen;
+        p.splits = std::max(1, (max_ctx + kSplitLen - 1) / kSplitLen);
+        if (p.decode_count > kMaxSplitTokens || p.splits > kMaxSplits) {
+            p.splits = 1;
+            p.split_len = std::max(kBlockSize, (max_ctx + kBlockSize - 1) / kBlockSize * kBlockSize);
         }
     }
 
@@ -947,6 +949,12 @@ std::vector<int32_t> test_sample(const std::vector<float> &logits, int R, int V,
 }
 
 }  // namespace cuda
+
+int64_t cuda_free_bytes() {
+    size_t free = 0, total = 0;
+    if (cudaMemGetInfo(&free, &total) != cudaSuccess) return 0;
+    return static_cast<int64_t>(free);
+}
 
 bool cuda_device_present() {
     int count = 0;

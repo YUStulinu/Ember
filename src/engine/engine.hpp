@@ -80,6 +80,7 @@ struct EngineOptions {
     int max_prefill_chunk = 512;   // prompt tokens per sequence per step
     bool prefix_caching = true;
     int max_context = 0;           // 0 = the model's max_position
+    int spec_tokens = 4;           // speculative decoding: tokens the draft proposes per step
 };
 
 struct RequestInfo {
@@ -100,11 +101,13 @@ struct EngineStats {
     double last_batch_tokens = 0, last_batch_seqs = 0;
     double ttft_ms_avg = 0;           // time to first token, recent average
     double uptime_s = 0;
+    uint64_t spec_steps = 0, spec_proposed = 0, spec_accepted = 0;  // speculative decoding
 };
 
 class Engine {
 public:
-    Engine(Backend &backend, const EngineOptions &options);
+    // With a draft backend (same tokenizer), decoding is speculative.
+    Engine(Backend &backend, const EngineOptions &options, Backend *draft = nullptr);
     ~Engine();
 
     std::shared_ptr<RequestStream> submit(Request request);
@@ -138,10 +141,19 @@ private:
     void preempt(Sequence &s);
     bool ensure_blocks(Sequence &s, int upto_tokens);
     void seal_full_blocks(Sequence &s);
+    bool spec_possible() const;
+    bool spec_step();
+    bool ensure_draft_blocks(Sequence &s, int upto_tokens);
+    std::vector<int32_t> draft_forward(const std::vector<Sequence *> &seqs, const std::vector<std::vector<int32_t>> &ext,
+                                       const std::vector<std::pair<int, int>> &range, bool sample);
 
     Backend &backend_;
     EngineOptions opt_;
     BlockManager blocks_;
+    Backend *draft_ = nullptr;
+    std::unique_ptr<BlockManager> draft_blocks_;
+    StepBatch draft_batch_;
+    int last_new_tokens_ = 0;
     std::vector<int> eos_;
 
     mutable std::mutex mutex_;          // guards incoming_, the sequence lists and stats_

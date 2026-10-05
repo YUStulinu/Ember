@@ -68,17 +68,29 @@ struct Engine::Sequence {
     Clock::time_point arrival;
     double first_token_ms = 0;
     std::vector<int32_t> pending;  // tokens not yet delivered to the stream
+    std::vector<int> draft_blocks; // the draft model's cache (speculative decoding)
+    int draft_computed = 0;
 };
 
-Engine::Engine(Backend &backend, const EngineOptions &options)
-    : backend_(backend), opt_(options), blocks_(backend.num_kv_blocks(), options.prefix_caching), start_time_(Clock::now()) {
+Engine::Engine(Backend &backend, const EngineOptions &options, Backend *draft)
+    : backend_(backend), opt_(options), blocks_(backend.num_kv_blocks(), options.prefix_caching), draft_(draft),
+      start_time_(Clock::now()) {
+    if (draft_) {
+        EMBER_CHECK(draft_->config().vocab_size == backend_.config().vocab_size,
+                    "the draft model's vocabulary ({}) differs from the target's ({})", draft_->config().vocab_size,
+                    backend_.config().vocab_size);
+        EMBER_CHECK(opt_.spec_tokens >= 1 && opt_.spec_tokens <= 16, "--spec-tokens must be in 1..16");
+        draft_blocks_ = std::make_unique<BlockManager>(draft_->num_kv_blocks(), false);
+    }
     const BackendOptions &bo = backend_.options();
     if (opt_.max_batch_tokens <= 0 || opt_.max_batch_tokens > bo.max_batch_tokens) opt_.max_batch_tokens = bo.max_batch_tokens;
     if (opt_.max_seqs <= 0 || opt_.max_seqs > bo.max_seqs) opt_.max_seqs = bo.max_seqs;
     int rows = bo.max_logit_rows > 0 ? bo.max_logit_rows : bo.max_seqs;
     opt_.max_seqs = std::min(opt_.max_seqs, rows);
+    if (draft_) opt_.max_seqs = std::min(opt_.max_seqs, draft_->options().max_seqs);
     if (opt_.max_context <= 0 || opt_.max_context > backend_.config().max_position) opt_.max_context = backend_.config().max_position;
     opt_.max_context = std::min(opt_.max_context, backend_.num_kv_blocks() * kBlockSize);
+    if (draft_) opt_.max_context = std::min(opt_.max_context, draft_->num_kv_blocks() * kBlockSize - opt_.spec_tokens - 1);
     opt_.max_prefill_chunk = std::max(1, std::min(opt_.max_prefill_chunk, opt_.max_batch_tokens));
     eos_ = backend_.config().eos_ids;
     stats_.kv_blocks = backend_.num_kv_blocks();
@@ -183,6 +195,9 @@ void Engine::seal_full_blocks(Sequence &s) {
 void Engine::preempt(Sequence &s) {
     blocks_.release_all(s.blocks);
     s.blocks.clear();
+    if (draft_blocks_) draft_blocks_->release_all(s.draft_blocks);
+    s.draft_blocks.clear();
+    s.draft_computed = 0;
     s.computed = 0;
     s.sealed = 0;
     s.chain = 0;
@@ -202,6 +217,8 @@ void Engine::finish(Sequence &s, FinishReason reason) {
     s.stream->push(d);
     blocks_.release_all(s.blocks);
     s.blocks.clear();
+    if (draft_blocks_) draft_blocks_->release_all(s.draft_blocks);
+    s.draft_blocks.clear();
     stats_.requests_done++;
 }
 
@@ -341,9 +358,27 @@ bool Engine::schedule() {
 
 bool Engine::step() {
     auto t0 = Clock::now();
+    bool spec;
     {
         std::lock_guard<std::mutex> lock(mutex_);
         take_submissions();
+        spec = spec_possible();
+    }
+    if (spec && spec_step()) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        const double ms = std::chrono::duration<double, std::milli>(Clock::now() - t0).count();
+        stats_.steps++;
+        const double a = 0.05;
+        auto ema = [&](double &v, double x) { v = stats_.steps == 1 ? x : (1 - a) * v + a * x; };
+        ema(stats_.step_ms, ms);
+        ema(stats_.tokens_per_second, ms > 0 ? last_new_tokens_ / (ms / 1000.0) : 0);
+        ema(stats_.prefill_per_second, 0);
+        stats_.last_batch_seqs = static_cast<double>(running_.size());
+        stats_.last_batch_tokens = batch_.num_tokens();
+        return true;
+    }
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
         if (!schedule()) return false;
     }
 
@@ -410,6 +445,214 @@ bool Engine::step() {
     stats_.last_batch_seqs = batch_.num_seqs();
     for (Sequence *s : batch_seqs_)
         if (s->generated == 1 && s->first_token_ms > 0) ema(stats_.ttft_ms_avg, s->first_token_ms);
+    return true;
+}
+
+// ---- speculative decoding ---------------------------------------------------------------
+//
+// The draft model proposes k tokens per sequence; the target checks all of them
+// in one forward pass over k + 1 positions. Both models sample with the same
+// Gumbel noise for a given (seed, position) - the noise is a pure function of
+// them - so the target's sample at each position is exactly what it would have
+// drawn without speculation. Draft tokens are accepted while they equal the
+// target's samples; at the first difference the target's own token is used.
+// The output is therefore identical to plain decoding with the same seed; only
+// the number of target passes changes.
+
+bool Engine::spec_possible() const {
+    if (!draft_ || running_.empty() || !waiting_.empty() || !incoming_.empty()) return false;
+    const int verify_rows = static_cast<int>(running_.size()) * (opt_.spec_tokens + 1);
+    if (verify_rows > opt_.max_batch_tokens || verify_rows > backend_.options().max_logit_rows) return false;
+    for (const auto &s : running_)
+        if (static_cast<int>(s->tokens.size()) - s->computed != 1) return false;  // someone is still reading its prompt
+    return true;
+}
+
+bool Engine::ensure_draft_blocks(Sequence &s, int upto) {
+    const size_t need = static_cast<size_t>((upto + kBlockSize - 1) / kBlockSize);
+    while (s.draft_blocks.size() < need) {
+        int b = draft_blocks_->allocate();
+        if (b < 0) return false;
+        s.draft_blocks.push_back(b);
+    }
+    return true;
+}
+
+// Runs one forward pass of the draft model over `parts` (sequence, first token
+// index, count) of each sequence's extended token list, with logits for the
+// sequences in `want_logits`; returns the sampled tokens for those.
+std::vector<int32_t> Engine::draft_forward(const std::vector<Sequence *> &seqs, const std::vector<std::vector<int32_t>> &ext,
+                                           const std::vector<std::pair<int, int>> &range, bool sample) {
+    StepBatch &b = draft_batch_;
+    b.clear();
+    std::vector<SampleRequest> reqs;
+    int max_blocks = 0;
+    std::vector<int> order;
+    for (size_t i = 0; i < seqs.size(); i++) {
+        const auto [from, count] = range[i];
+        if (count <= 0) continue;
+        order.push_back(static_cast<int>(i));
+        for (int p = from; p < from + count; p++) {
+            b.tokens.push_back(ext[i][static_cast<size_t>(p)]);
+            b.positions.push_back(p);
+        }
+        b.query_start.push_back(static_cast<int32_t>(b.tokens.size()));
+        b.context_len.push_back(from + count);
+        max_blocks = std::max(max_blocks, static_cast<int>(seqs[i]->draft_blocks.size()));
+        if (sample) {
+            b.logit_rows.push_back(static_cast<int32_t>(b.tokens.size()) - 1);
+            SampleRequest r;
+            r.params = seqs[i]->req.sampling;
+            r.counter = static_cast<uint64_t>(from + count);  // the position being predicted
+            reqs.push_back(r);
+        }
+    }
+    if (order.empty()) return {};
+    b.max_blocks = max_blocks;
+    b.block_tables.assign(order.size() * static_cast<size_t>(max_blocks), 0);
+    for (size_t j = 0; j < order.size(); j++) {
+        const auto &bl = seqs[static_cast<size_t>(order[j])]->draft_blocks;
+        std::copy(bl.begin(), bl.end(), b.block_tables.begin() + static_cast<ptrdiff_t>(j * max_blocks));
+    }
+    draft_->forward(b);
+    std::vector<int32_t> out(reqs.size());
+    if (sample) draft_->sample(reqs, out);
+    return out;
+}
+
+bool Engine::spec_step() {
+    const int k = opt_.spec_tokens;
+    std::vector<Sequence *> seqs;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        for (auto &s : running_) {
+            // Target cache room for the k + 1 verified positions.
+            if (!ensure_blocks(*s, s->computed + k + 1)) return false;
+            seqs.push_back(s.get());
+        }
+    }
+    const size_t S = seqs.size();
+    std::vector<std::vector<int32_t>> ext(S);
+    for (size_t i = 0; i < S; i++) ext[i] = seqs[i]->tokens;
+
+    // 1. Bring the draft's cache up to date (everything but the last token), in budget-sized chunks.
+    for (;;) {
+        std::vector<std::pair<int, int>> range(S, {0, 0});
+        int budget = opt_.max_batch_tokens;
+        bool any = false;
+        for (size_t i = 0; i < S && budget > 0; i++) {
+            Sequence &s = *seqs[i];
+            int missing = static_cast<int>(ext[i].size()) - 1 - s.draft_computed;
+            if (missing <= 0) continue;
+            int n = std::min(missing, budget);
+            if (!ensure_draft_blocks(s, s.draft_computed + n)) return false;
+            range[i] = {s.draft_computed, n};
+            budget -= n;
+            any = true;
+        }
+        if (!any) break;
+        draft_forward(seqs, ext, range, false);
+        for (size_t i = 0; i < S; i++) seqs[i]->draft_computed += range[i].second;
+    }
+
+    // 2. k proposals: one token per sequence per pass (pure decode, so CUDA graphs apply).
+    for (int j = 0; j < k; j++) {
+        std::vector<std::pair<int, int>> range(S);
+        for (size_t i = 0; i < S; i++) {
+            Sequence &s = *seqs[i];
+            if (!ensure_draft_blocks(s, static_cast<int>(ext[i].size()))) return false;
+            range[i] = {static_cast<int>(ext[i].size()) - 1, 1};
+        }
+        auto toks = draft_forward(seqs, ext, range, true);
+        for (size_t i = 0; i < S; i++) {
+            ext[i].push_back(toks[i]);
+            seqs[i]->draft_computed = static_cast<int>(ext[i].size()) - 1;
+        }
+    }
+
+    // 3. Verify: the target reads [last token, d1..dk] and samples at every position.
+    StepBatch &b = batch_;
+    b.clear();
+    sample_reqs_.clear();
+    int max_blocks = 0;
+    for (size_t i = 0; i < S; i++) {
+        Sequence &s = *seqs[i];
+        const int n = static_cast<int>(s.tokens.size());
+        for (int p = n - 1; p <= n - 1 + k; p++) {
+            b.tokens.push_back(ext[i][static_cast<size_t>(p)]);
+            b.positions.push_back(p);
+            b.logit_rows.push_back(static_cast<int32_t>(b.tokens.size()) - 1);
+            SampleRequest r;
+            r.params = s.req.sampling;
+            r.counter = static_cast<uint64_t>(p + 1);
+            sample_reqs_.push_back(r);
+        }
+        b.query_start.push_back(static_cast<int32_t>(b.tokens.size()));
+        b.context_len.push_back(n + k);
+        max_blocks = std::max(max_blocks, static_cast<int>(s.blocks.size()));
+    }
+    b.max_blocks = max_blocks;
+    b.block_tables.assign(S * static_cast<size_t>(max_blocks), 0);
+    for (size_t i = 0; i < S; i++)
+        std::copy(seqs[i]->blocks.begin(), seqs[i]->blocks.end(), b.block_tables.begin() + static_cast<ptrdiff_t>(i * max_blocks));
+    backend_.forward(b);
+    sampled_.resize(sample_reqs_.size());
+    backend_.sample(sample_reqs_, sampled_);
+
+    // 4. Accept, append, stream.
+    std::lock_guard<std::mutex> lock(mutex_);
+    int new_tokens = 0;
+    std::vector<Sequence *> done;
+    std::vector<FinishReason> reasons;
+    for (size_t i = 0; i < S; i++) {
+        Sequence &s = *seqs[i];
+        const int32_t *t = &sampled_[i * static_cast<size_t>(k + 1)];
+        const int n = static_cast<int>(s.tokens.size());
+        int m = 0;
+        while (m < k && t[m] == ext[i][static_cast<size_t>(n + m)]) m++;
+        stats_.spec_proposed += static_cast<uint64_t>(k);
+        stats_.spec_accepted += static_cast<uint64_t>(m);
+        FinishReason reason = FinishReason::none;
+        int appended = 0;
+        for (int j = 0; j <= m && reason == FinishReason::none; j++) {
+            const int32_t tok = t[j];
+            s.tokens.push_back(tok);
+            s.generated++;
+            appended++;
+            new_tokens++;
+            if (s.generated == 1) s.first_token_ms = std::chrono::duration<double, std::milli>(Clock::now() - s.arrival).count();
+            bool is_eos = std::find(eos_.begin(), eos_.end(), tok) != eos_.end() ||
+                          std::find(s.req.stop_tokens.begin(), s.req.stop_tokens.end(), tok) != s.req.stop_tokens.end();
+            if (is_eos && !s.req.ignore_eos) reason = FinishReason::stop;
+            else if (s.generated >= s.req.max_tokens || static_cast<int>(s.tokens.size()) >= opt_.max_context) reason = FinishReason::length;
+            if (reason != FinishReason::stop || s.req.ignore_eos) s.pending.push_back(tok);
+        }
+        // Cache entries are valid for the inputs that matched: positions n - 1 .. n - 1 + m.
+        s.computed = n + std::min(m, appended - 1);
+        s.draft_computed = std::min(s.draft_computed, s.computed);
+        seal_full_blocks(s);
+        if (reason != FinishReason::none) {
+            done.push_back(&s);
+            reasons.push_back(reason);
+        } else {
+            Delta d;
+            d.tokens = std::move(s.pending);
+            s.pending.clear();
+            d.prompt_tokens = s.prompt_len;
+            d.cached_tokens = s.cached;
+            d.generated = s.generated;
+            d.first_token_ms = s.generated == appended ? s.first_token_ms : 0;
+            s.stream->push(d);
+        }
+    }
+    for (size_t i = 0; i < done.size(); i++) {
+        finish(*done[i], reasons[i]);
+        auto it = std::find_if(running_.begin(), running_.end(), [&](const SeqPtr &p) { return p.get() == done[i]; });
+        if (it != running_.end()) running_.erase(it);
+    }
+    stats_.spec_steps++;
+    stats_.generated_tokens += static_cast<uint64_t>(new_tokens);
+    last_new_tokens_ = new_tokens;
     return true;
 }
 

@@ -17,7 +17,7 @@ constexpr int kVocab = 1000;
 constexpr int kEos = 1;
 
 // Next token after a context: a hash of every token, never EOS unless asked.
-int32_t next_token(const std::vector<int32_t> &ctx, bool allow_eos) {
+int32_t next_token(const std::vector<int32_t> &ctx, bool allow_eos, int disagree = 0) {
     uint64_t h = 1469598103934665603ull;
     for (int32_t t : ctx) {
         h ^= static_cast<uint64_t>(t);
@@ -25,12 +25,14 @@ int32_t next_token(const std::vector<int32_t> &ctx, bool allow_eos) {
     }
     int32_t tok = static_cast<int32_t>(2 + (h >> 17) % (kVocab - 2));
     if (allow_eos && (h >> 7) % 23 == 0) tok = kEos;
+    if (disagree && (h >> 40) % disagree == 0) tok = static_cast<int32_t>(2 + (tok + 7) % (kVocab - 2));  // a wrong guess
     return tok;
 }
 
 class FakeBackend final : public Backend {
 public:
-    FakeBackend(int blocks, int max_batch_tokens, int max_seqs, bool eos) : eos_(eos) {
+    FakeBackend(int blocks, int max_batch_tokens, int max_seqs, bool eos, int disagree = 0, int logit_rows = 0)
+        : eos_(eos), disagree_(disagree) {
         cfg_.arch = "qwen3";
         cfg_.vocab_size = kVocab;
         cfg_.hidden = 8;
@@ -41,7 +43,7 @@ public:
         cfg_.eos_ids = {kEos};
         opt_.max_batch_tokens = max_batch_tokens;
         opt_.max_seqs = max_seqs;
-        opt_.max_logit_rows = max_seqs;
+        opt_.max_logit_rows = logit_rows ? logit_rows : max_seqs;
         cache_.assign(static_cast<size_t>(blocks) * kBlockSize, -1);
         blocks_ = blocks;
     }
@@ -53,6 +55,7 @@ public:
 
     void forward(const StepBatch &b) override {
         CHECK(b.num_tokens() <= opt_.max_batch_tokens && b.num_seqs() <= opt_.max_seqs);
+        CHECK(static_cast<int>(b.logit_rows.size()) <= opt_.max_logit_rows);
         steps++;
         max_seen_tokens = std::max(max_seen_tokens, b.num_tokens());
         // Write every new token into its slot first (as the real backends do).
@@ -65,7 +68,7 @@ public:
             while (b.query_start[s + 1] <= row) s++;
             std::vector<int32_t> ctx;
             for (int p = 0; p <= b.positions[static_cast<size_t>(row)]; p++) ctx.push_back(cache_[slot(b, s, p)]);
-            next_.push_back(next_token(ctx, eos_));
+            next_.push_back(next_token(ctx, eos_, disagree_));
         }
     }
     void sample(std::span<const SampleRequest> reqs, std::span<int32_t> out) override {
@@ -91,6 +94,7 @@ private:
     std::vector<int32_t> next_;
     int blocks_;
     bool eos_;
+    int disagree_;
 };
 
 // What a request must produce, computed directly.
@@ -294,4 +298,33 @@ TEST("engine: background loop serves concurrent submitters") {
         CHECK(r.done && r.got == r.want);
     }
     engine.stop();
+}
+
+TEST("engine: speculative decoding gives exactly the target's output") {
+    for (int disagree : {1000000, 3, 2}) {  // draft almost always right, often wrong, mostly wrong
+        FakeBackend target(256, 256, 16, true, 0, 16 * 5);
+        FakeBackend draft(256, 256, 16, true, disagree);
+        EngineOptions eo;
+        eo.spec_tokens = 4;
+        Engine engine(target, eo, &draft);
+        std::mt19937 rng(static_cast<uint32_t>(test::seed() + disagree));
+        std::vector<Running> reqs;
+        for (int i = 0; i < 12; i++) {
+            Request r;
+            r.prompt = random_tokens(rng, 5 + static_cast<int>(rng() % 60));
+            r.max_tokens = 10 + static_cast<int>(rng() % 70);
+            Running run;
+            run.want = expected(r.prompt, r.max_tokens, true);
+            run.stream = engine.submit(r);
+            reqs.push_back(std::move(run));
+        }
+        drain(engine, reqs);
+        for (size_t i = 0; i < reqs.size(); i++) CHECK_MSG(reqs[i].got == reqs[i].want, "disagree {}: request {} differs", disagree, i);
+        EngineStats st = engine.stats();
+        CHECK(st.spec_steps > 0);
+        const double rate = static_cast<double>(st.spec_accepted) / std::max<uint64_t>(1, st.spec_proposed);
+        if (test::verbose()) std::printf("[1/%d wrong: acceptance %.2f] ", disagree, rate);
+        if (disagree > 1000) CHECK(rate > 0.9);
+        CHECK_EQ(engine.stats().kv_used, 0);
+    }
 }

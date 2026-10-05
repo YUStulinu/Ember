@@ -14,6 +14,7 @@
 
 #include "backend/backend.hpp"
 #include "cli_args.hpp"
+#include "loader.hpp"
 #include "common/error.hpp"
 #include "common/log.hpp"
 #include "engine/engine.hpp"
@@ -77,20 +78,6 @@ void print_help() {
         "  --host ADDR --port N   (default 127.0.0.1:8080)\n");
 }
 
-struct Loaded {
-    std::unique_ptr<Backend> backend;
-    Tokenizer tokenizer;
-};
-
-Loaded load(const cli::Options &opt) {
-    auto t0 = Clock::now();
-    Loaded l;
-    l.tokenizer = Tokenizer::load(opt.model + "/tokenizer.json");
-    l.backend = create_backend(opt.model, opt.backend);
-    log::info("loaded {} in {:.1f} s", opt.model, since_ms(t0) / 1000);
-    return l;
-}
-
 std::vector<int32_t> build_prompt(const cli::Options &opt, const Tokenizer &tok, const std::vector<ChatMessage> &history) {
     std::string text;
     if (opt.raw) {
@@ -149,8 +136,8 @@ int cmd_generate(const cli::Options &opt) {
     std::string prompt = opt.prompt;
     if (prompt.empty() && !opt.rest.empty()) prompt = opt.rest[0];
     if (prompt.empty()) fail("give a prompt with -p \"...\"");
-    Loaded l = load(opt);
-    Engine engine(*l.backend, opt.engine);
+    cli::Loaded l = cli::load(opt);
+    Engine engine(*l.backend, opt.engine, l.draft.get());
     engine.start();
     std::vector<ChatMessage> history;
     if (!opt.system.empty()) history.push_back({"system", opt.system});
@@ -161,12 +148,18 @@ int cmd_generate(const cli::Options &opt) {
     req.max_tokens = opt.max_tokens;
     req.tag = "cli";
     stream_answer(engine, l.tokenizer, std::move(req), true);
+    EngineStats st = engine.stats();
+    if (st.spec_steps)
+        std::fprintf(stderr, "[speculative: %llu steps, %.0f%% of draft tokens accepted, %.2f tokens per target pass]\n",
+                     static_cast<unsigned long long>(st.spec_steps),
+                     100.0 * static_cast<double>(st.spec_accepted) / static_cast<double>(std::max<uint64_t>(1, st.spec_proposed)),
+                     static_cast<double>(st.generated_tokens) / static_cast<double>(st.spec_steps));
     return 0;
 }
 
 int cmd_chat(cli::Options opt) {
-    Loaded l = load(opt);
-    Engine engine(*l.backend, opt.engine);
+    cli::Loaded l = cli::load(opt);
+    Engine engine(*l.backend, opt.engine, l.draft.get());
     engine.start();
     std::vector<ChatMessage> history;
     if (!opt.system.empty()) history.push_back({"system", opt.system});
@@ -203,7 +196,7 @@ int cmd_chat(cli::Options opt) {
 }
 
 int cmd_info(const cli::Options &opt) {
-    Loaded l = load(opt);
+    cli::Loaded l = cli::load(opt);
     const ModelConfig &c = l.backend->config();
     MemoryInfo m = l.backend->memory();
     auto mib = [](int64_t b) { return static_cast<double>(b) / (1 << 20); };
@@ -231,7 +224,7 @@ int cmd_perplexity(cli::Options opt) {
         else files.push_back(a);
     }
     opt.backend.max_logit_rows = 64;
-    Loaded l = load(opt);
+    cli::Loaded l = cli::load(opt);
     Backend &be = *l.backend;
     const int V = be.config().vocab_size, chunk = 64;
     EMBER_CHECK(be.num_kv_blocks() * kBlockSize >= window, "the KV cache is smaller than the window");
@@ -345,8 +338,8 @@ int cmd_bench(cli::Options opt) {
         }
     }
     opt.engine.prefix_caching = false;  // measure computation, not cache hits
-    Loaded l = load(opt);
-    Engine engine(*l.backend, opt.engine);
+    cli::Loaded l = cli::load(opt);
+    Engine engine(*l.backend, opt.engine, l.draft.get());
     std::mt19937 rng(1234);
     SamplingParams greedy;
     greedy.temperature = 0;

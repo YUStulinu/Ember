@@ -125,6 +125,14 @@ public:
 
 std::unique_ptr<Backend> create_backend(const std::string &model_dir, const BackendOptions &options);
 
+// Bytes of weights a model will take in the given format (an estimate, for memory planning).
+int64_t estimate_weight_bytes(const std::string &model_dir, const BackendOptions &options);
+// Free GPU memory now (0 without CUDA).
+int64_t gpu_free_memory();
+// KV cache bytes to give each of two models (target + draft) sharing the GPU.
+int64_t plan_kv_split(const std::string &target_dir, const std::string &draft_dir, const BackendOptions &target,
+                      const BackendOptions &draft);
+
 bool cuda_available();
 
 }  // namespace ember

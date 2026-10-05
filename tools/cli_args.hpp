@@ -16,6 +16,7 @@ namespace ember::cli {
 struct Options {
     std::string model;
     std::string draft;  // speculative decoding draft model
+    std::string draft_weights;  // its weight format (default: same as --weights)
     BackendOptions backend;
     EngineOptions engine;
     SamplingParams sampling;
@@ -55,7 +56,8 @@ inline Options parse(int argc, char **argv, int first) {
         auto num = [&]() { return std::atof(value().c_str()); };
         if (a == "-m" || a == "--model") o.model = value();
         else if (a == "--draft") o.draft = value();
-        else if (a == "--spec-tokens") o.spec_tokens = static_cast<int>(num());
+        else if (a == "--draft-weights") o.draft_weights = value();
+        else if (a == "--spec-tokens") o.spec_tokens = o.engine.spec_tokens = static_cast<int>(num());
         else if (a == "--device") o.backend.device = value();
         else if (a == "--weights" || a == "-q") o.backend.weights = parse_weight_format(value());
         else if (a == "--quant-mix") o.backend.quant_mix = value();
