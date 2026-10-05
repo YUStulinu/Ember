@@ -1,0 +1,662 @@
+{
+ "cases": [
+  {
+   "text": "Hello, world!",
+   "ids": [
+    9707,
+    11,
+    1879,
+    0
+   ],
+   "decoded": "Hello, world!"
+  },
+  {
+   "text": "The quick brown fox jumps over the lazy dog.",
+   "ids": [
+    785,
+    3974,
+    13876,
+    38835,
+    34208,
+    916,
+    279,
+    15678,
+    5562,
+    13
+   ],
+   "decoded": "The quick brown fox jumps over the lazy dog."
+  },
+  {
+   "text": "Bună ziua! Ce mai faci? Mâine mergem la Iași și la Timișoara.",
+   "ids": [
+    33,
+    359,
+    6705,
+    63473,
+    4284,
+    0,
+    23769,
+    16737,
+    3463,
+    72,
+    30,
+    386,
+    8835,
+    482,
+    18463,
+    336,
+    1187,
+    358,
+    64,
+    27272,
+    29334,
+    1187,
+    9354,
+    72,
+    20073,
+    78,
+    5059,
+    13
+   ],
+   "decoded": "Bună ziua! Ce mai faci? Mâine mergem la Iași și la Timișoara."
+  },
+  {
+   "text": "ȘTEFAN CEL MARE ȘI SFÂNT, ȚARA ROMÂNEASCĂ",
+   "ids": [
+    146587,
+    2446,
+    37,
+    1093,
+    90421,
+    386,
+    4477,
+    220,
+    146587,
+    40,
+    23463,
+    32795,
+    6408,
+    11,
+    220,
+    148244,
+    53962,
+    30686,
+    32795,
+    3944,
+    23705,
+    133321
+   ],
+   "decoded": "ȘTEFAN CEL MARE ȘI SFÂNT, ȚARA ROMÂNEASCĂ"
+  },
+  {
+   "text": "și ț (combining comma below must normalize to ș ț)",
+   "ids": [
+    27272,
+    220,
+    20838,
+    320,
+    21873,
+    5740,
+    31683,
+    3685,
+    1969,
+    21694,
+    311,
+    220,
+    20073,
+    220,
+    20838,
+    8
+   ],
+   "decoded": "și ț (combining comma below must normalize to ș ț)"
+  },
+  {
+   "text": "é à ô ñ ü",
+   "ids": [
+    963,
+    3784,
+    128435,
+    1683,
+    109,
+    10489
+   ],
+   "decoded": "é à ô ñ ü"
+  },
+  {
+   "text": "Å Ω ﬁ",
+   "ids": [
+    144044,
+    7851,
+    102,
+    32495,
+    70731
+   ],
+   "decoded": "Å Ω ﬁ"
+  },
+  {
+   "text": "I'm sure you've seen it; they'll say we'd won. IT'S DONE, ISN'T IT? 'quoted'",
+   "ids": [
+    40,
+    2776,
+    2704,
+    498,
+    3003,
+    3884,
+    432,
+    26,
+    807,
+    3278,
+    1977,
+    582,
+    4172,
+    2765,
+    13,
+    8700,
+    13272,
+    54685,
+    11,
+    3424,
+    45,
+    17323,
+    8700,
+    30,
+    364,
+    63725,
+    6
+   ],
+   "decoded": "I'm sure you've seen it; they'll say we'd won. IT'S DONE, ISN'T IT? 'quoted'"
+  },
+  {
+   "text": "def f(x):\n    return x ** 2  # square\n\n\n\tindented\r\nwindows line",
+   "ids": [
+    750,
+    282,
+    2075,
+    982,
+    262,
+    470,
+    856,
+    3070,
+    220,
+    17,
+    220,
+    671,
+    9334,
+    1406,
+    197,
+    484,
+    15864,
+    319,
+    27077,
+    1555
+   ],
+   "decoded": "def f(x):\n    return x ** 2  # square\n\n\n\tindented\r\nwindows line"
+  },
+  {
+   "text": "    leading spaces and trailing spaces    ",
+   "ids": [
+    262,
+    6388,
+    12621,
+    323,
+    27748,
+    12621,
+    257
+   ],
+   "decoded": "    leading spaces and trailing spaces    "
+  },
+  {
+   "text": "multiple   spaces nbsp　ideographic thin",
+   "ids": [
+    35673,
+    256,
+    12621,
+    4102,
+    5674,
+    22441,
+    94007,
+    378,
+    231,
+    63671
+   ],
+   "decoded": "multiple   spaces nbsp　ideographic thin"
+  },
+  {
+   "text": "numbers 1234567 3.14159 -42 1e10 ١٢٣ ⅷ",
+   "ids": [
+    37378,
+    220,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    220,
+    18,
+    13,
+    16,
+    19,
+    16,
+    20,
+    24,
+    481,
+    19,
+    17,
+    220,
+    16,
+    68,
+    16,
+    15,
+    220,
+    149,
+    94,
+    149,
+    95,
+    149,
+    96,
+    220,
+    70467,
+    115
+   ],
+   "decoded": "numbers 1234567 3.14159 -42 1e10 ١٢٣ ⅷ"
+  },
+  {
+   "text": "emoji 😀🎉👍🏽 family 👨‍👩‍👧 flags 🇷🇴",
+   "ids": [
+    37523,
+    90316,
+    144841,
+    144349,
+    145375,
+    2997,
+    61804,
+    101,
+    378,
+    235,
+    145233,
+    378,
+    235,
+    145665,
+    8042,
+    11162,
+    229,
+    115,
+    146514
+   ],
+   "decoded": "emoji 😀🎉👍🏽 family 👨‍👩‍👧 flags 🇷🇴"
+  },
+  {
+   "text": "中文分词测试，日本語のテキスト、한국어 텍스트",
+   "ids": [
+    104811,
+    17177,
+    99689,
+    81705,
+    3837,
+    101059,
+    102819,
+    15767,
+    56833,
+    61803,
+    70534,
+    5373,
+    23573,
+    124785,
+    31079,
+    10764,
+    44104,
+    53189
+   ],
+   "decoded": "中文分词测试，日本語のテキスト、한국어 텍스트"
+  },
+  {
+   "text": "Привет, мир! Ελληνικά κείμενα. עברית. العربية",
+   "ids": [
+    53645,
+    26991,
+    8178,
+    11,
+    137144,
+    0,
+    7851,
+    243,
+    33486,
+    33486,
+    41424,
+    33269,
+    29762,
+    67337,
+    74134,
+    71638,
+    30143,
+    54141,
+    43123,
+    30143,
+    33269,
+    18945,
+    13,
+    131917,
+    123826,
+    13,
+    129071
+   ],
+   "decoded": "Привет, мир! Ελληνικά κείμενα. עברית. العربية"
+  },
+  {
+   "text": "<|im_start|>user\nhi<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+   "ids": [
+    151644,
+    872,
+    198,
+    6023,
+    151645,
+    198,
+    151644,
+    77091,
+    198,
+    151667,
+    271,
+    151668,
+    271
+   ],
+   "decoded": "<|im_start|>user\nhi<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
+  },
+  {
+   "text": "special tokens <|endoftext|> mid<|im_end|>text and <tool_call>{\"a\":1}</tool_call>",
+   "ids": [
+    15144,
+    11211,
+    220,
+    151643,
+    5099,
+    151645,
+    1318,
+    323,
+    220,
+    151657,
+    4913,
+    64,
+    788,
+    16,
+    92,
+    151658
+   ],
+   "decoded": "special tokens <|endoftext|> mid<|im_end|>text and <tool_call>{\"a\":1}</tool_call>"
+  },
+  {
+   "text": "<|im_start without end <| |> < | im_end | >",
+   "ids": [
+    27,
+    91,
+    318,
+    4906,
+    2041,
+    835,
+    82639,
+    58721,
+    366,
+    760,
+    732,
+    6213,
+    760,
+    861
+   ],
+   "decoded": "<|im_start without end <| |> < | im_end | >"
+  },
+  {
+   "text": "",
+   "ids": [],
+   "decoded": ""
+  },
+  {
+   "text": " ",
+   "ids": [
+    220
+   ],
+   "decoded": " "
+  },
+  {
+   "text": "\n\n\n",
+   "ids": [
+    1406
+   ],
+   "decoded": "\n\n\n"
+  },
+  {
+   "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "ids": [
+    69440,
+    69440,
+    69440,
+    69440,
+    69440,
+    69440,
+    69440,
+    69440,
+    69440,
+    69440,
+    69440,
+    69440,
+    69440,
+    69440,
+    69440,
+    69440,
+    69440,
+    69440,
+    69440,
+    69440,
+    69440,
+    69440,
+    69440,
+    69440,
+    69440,
+    69440,
+    69440,
+    69440,
+    69440,
+    69440,
+    69440,
+    69440,
+    69440,
+    69440,
+    69440,
+    69440,
+    69440,
+    28458
+   ],
+   "decoded": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  {
+   "text": "https://example.com/path?query=1&x=y#frag user@mail.ro",
+   "ids": [
+    2428,
+    1110,
+    8687,
+    905,
+    50976,
+    30,
+    1631,
+    28,
+    16,
+    5,
+    87,
+    29368,
+    2,
+    33198,
+    1196,
+    65862,
+    30842
+   ],
+   "decoded": "https://example.com/path?query=1&x=y#frag user@mail.ro"
+  },
+  {
+   "text": "JSON: {\"key\": [1, 2, {\"nested\": null}]}",
+   "ids": [
+    5370,
+    25,
+    5212,
+    792,
+    788,
+    508,
+    16,
+    11,
+    220,
+    17,
+    11,
+    5212,
+    59271,
+    788,
+    845,
+    92,
+    13989
+   ],
+   "decoded": "JSON: {\"key\": [1, 2, {\"nested\": null}]}"
+  },
+  {
+   "text": "tabs\t\tand\u000bvertical\fform feed",
+   "ids": [
+    30993,
+    197,
+    52477,
+    199,
+    15292,
+    200,
+    627,
+    5395
+   ],
+   "decoded": "tabs\t\tand\u000bvertical\fform feed"
+  },
+  {
+   "text": "mixed 123abc abc123 a1b2c3 ..., !!! ??? ---",
+   "ids": [
+    56685,
+    220,
+    16,
+    17,
+    18,
+    13683,
+    39022,
+    16,
+    17,
+    18,
+    264,
+    16,
+    65,
+    17,
+    66,
+    18,
+    60353,
+    32870,
+    51317,
+    12448
+   ],
+   "decoded": "mixed 123abc abc123 a1b2c3 ..., !!! ??? ---"
+  },
+  {
+   "text": "😀😀😀😀😀x",
+   "ids": [
+    141334,
+    141334,
+    141334,
+    141334,
+    141334,
+    87
+   ],
+   "decoded": "😀😀😀😀😀x"
+  },
+  {
+   "text": "Ünïcödé ñ ß ﬀ ǅ ǆ İstanbul ı",
+   "ids": [
+    52491,
+    77,
+    37572,
+    66,
+    2956,
+    128505,
+    1683,
+    109,
+    1683,
+    253,
+    32495,
+    105,
+    222,
+    220,
+    131,
+    227,
+    220,
+    131,
+    228,
+    129514,
+    220,
+    3777
+   ],
+   "decoded": "Ünïcödé ñ ß ﬀ ǅ ǆ İstanbul ı"
+  },
+  {
+   "text": "\u0000\u0001 control  chars",
+   "ids": [
+    188,
+    189,
+    2524,
+    220,
+    221,
+    23000
+   ],
+   "decoded": "\u0000\u0001 control  chars"
+  },
+  {
+   "text": "x́́́ stacked marks",
+   "ids": [
+    87,
+    53839,
+    53839,
+    53839,
+    41315,
+    15423
+   ],
+   "decoded": "x́́́ stacked marks"
+  },
+  {
+   "text": "café naïve résumé coöperate",
+   "ids": [
+    924,
+    58858,
+    94880,
+    586,
+    9333,
+    1242,
+    963,
+    1062,
+    2956,
+    79113
+   ],
+   "decoded": "café naïve résumé coöperate"
+  },
+  {
+   "text": "ά έ ή ί ό ύ ώ (Greek tonos)",
+   "ids": [
+    74134,
+    7851,
+    255,
+    7851,
+    106,
+    7851,
+    107,
+    17383,
+    234,
+    17383,
+    235,
+    17383,
+    236,
+    320,
+    94348,
+    8766,
+    436,
+    8
+   ],
+   "decoded": "ά έ ή ί ό ύ ώ (Greek tonos)"
+  }
+ ]
+}

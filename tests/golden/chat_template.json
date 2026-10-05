@@ -1,0 +1,86 @@
+{
+ "cases": [
+  {
+   "messages": [
+    {
+     "role": "user",
+     "content": "Salut! Cum te cheamă?"
+    }
+   ],
+   "enable_thinking": false,
+   "prompt": "<|im_start|>user\nSalut! Cum te cheamă?<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
+  },
+  {
+   "messages": [
+    {
+     "role": "user",
+     "content": "What is 2+2?"
+    }
+   ],
+   "enable_thinking": true,
+   "prompt": "<|im_start|>user\nWhat is 2+2?<|im_end|>\n<|im_start|>assistant\n"
+  },
+  {
+   "messages": [
+    {
+     "role": "system",
+     "content": "You are a concise assistant."
+    },
+    {
+     "role": "user",
+     "content": "Name three colors."
+    }
+   ],
+   "enable_thinking": false,
+   "prompt": "<|im_start|>system\nYou are a concise assistant.<|im_end|>\n<|im_start|>user\nName three colors.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
+  },
+  {
+   "messages": [
+    {
+     "role": "system",
+     "content": "Be brief."
+    },
+    {
+     "role": "user",
+     "content": "Hi"
+    },
+    {
+     "role": "assistant",
+     "content": "<think>\nThe user greets.\n</think>\n\nHello! How can I help?"
+    },
+    {
+     "role": "user",
+     "content": "Tell me a joke."
+    }
+   ],
+   "enable_thinking": false,
+   "prompt": "<|im_start|>system\nBe brief.<|im_end|>\n<|im_start|>user\nHi<|im_end|>\n<|im_start|>assistant\nHello! How can I help?<|im_end|>\n<|im_start|>user\nTell me a joke.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
+  },
+  {
+   "messages": [
+    {
+     "role": "user",
+     "content": "A"
+    },
+    {
+     "role": "assistant",
+     "content": "B"
+    },
+    {
+     "role": "user",
+     "content": "C"
+    },
+    {
+     "role": "assistant",
+     "content": "D"
+    },
+    {
+     "role": "user",
+     "content": "E"
+    }
+   ],
+   "enable_thinking": true,
+   "prompt": "<|im_start|>user\nA<|im_end|>\n<|im_start|>assistant\nB<|im_end|>\n<|im_start|>user\nC<|im_end|>\n<|im_start|>assistant\nD<|im_end|>\n<|im_start|>user\nE<|im_end|>\n<|im_start|>assistant\n"
+  }
+ ]
+}

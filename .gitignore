@@ -1,0 +1,25 @@
+# Build output
+/build/
+/build-*/
+/out/
+CMakeUserPresets.json
+
+# Downloaded model weights (fetched by models/download.sh)
+/models/*/
+
+# Generated data
+/eval/
+/tests/golden/Qwen3-*/
+/bench/results/*.raw
+
+# Python
+/reference/.venv/
+__pycache__/
+
+# Editors and OS
+.vscode/
+.vs/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
