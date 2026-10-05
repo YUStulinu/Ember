@@ -4,11 +4,11 @@
    "messages": [
     {
      "role": "user",
-     "content": "Salut! Cum te cheamă?"
+     "content": "Hello! My name is Ștefan. What is yours?"
     }
    ],
    "enable_thinking": false,
-   "prompt": "<|im_start|>user\nSalut! Cum te cheamă?<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
+   "prompt": "<|im_start|>user\nHello! My name is Ștefan. What is yours?<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
   },
   {
    "messages": [

@@ -73,7 +73,7 @@ TEST("tokenizer: special tokens, round trips, streaming decode") {
     CHECK_EQ(ids.front(), 151644);
     CHECK_EQ(tok.encode("<|im_start|>x", false).size() > 2, true);  // parse_special=false: plain text
 
-    std::string text = "Știința și tehnologia în România 🇷🇴 — 東京 ✓";
+    std::string text = "Science in Iași, Brăila and Târgu Mureș 🇷🇴 — 東京 ✓";
     std::vector<int> t = tok.encode(text);
     CHECK_EQ(tok.decode(t), text);
     StreamDecoder dec(tok);
@@ -92,7 +92,7 @@ TEST("tokenizer: speed") {
     const Tokenizer &tok = qwen_tokenizer();
     std::string text;
     for (int i = 0; i < 2000; i++) text += "Inference engines turn model weights into text, token by token; ";
-    for (int i = 0; i < 200; i++) text += "Bună ziua! Motorul de inferență rulează pe placa video. ";
+    for (int i = 0; i < 200; i++) text += "The engine in Iași runs on the GPU in Timișoara and Brăila. ";
     auto t0 = std::chrono::steady_clock::now();
     auto ids = tok.encode(text);
     double s = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();

@@ -29,8 +29,8 @@ OUT = os.path.join(ROOT, "tests", "golden")
 TOKENIZER_TEXTS = [
     "Hello, world!",
     "The quick brown fox jumps over the lazy dog.",
-    "Bună ziua! Ce mai faci? Mâine mergem la Iași și la Timișoara.",
-    "ȘTEFAN CEL MARE ȘI SFÂNT, ȚARA ROMÂNEASCĂ",
+    "Good morning! Tomorrow we travel from Iași to Timișoara, then to Brăila and Târgu Mureș.",
+    "CAPITAL NAMES: ȘTEFAN, ȚIȚEICA, BRĂILA, ÂNGELA, ÎNTORSURA",
     "și ț (combining comma below must normalize to ș ț)",
     "é à ô ñ ü",          # decomposed accents -> NFC
     "Å Ω ﬁ",                             # singleton decompositions, ligature (kept)
@@ -62,7 +62,7 @@ TOKENIZER_TEXTS = [
 ]
 
 CONVERSATIONS = [
-    {"messages": [{"role": "user", "content": "Salut! Cum te cheamă?"}], "enable_thinking": False},
+    {"messages": [{"role": "user", "content": "Hello! My name is Ștefan. What is yours?"}], "enable_thinking": False},
     {"messages": [{"role": "user", "content": "What is 2+2?"}], "enable_thinking": True},
     {"messages": [{"role": "system", "content": "You are a concise assistant."},
                   {"role": "user", "content": "Name three colors."}], "enable_thinking": False},

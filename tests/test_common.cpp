@@ -103,7 +103,7 @@ TEST("unicode: NFC composes, reorders and leaves NFC text alone") {
     CHECK_EQ(unicode::nfc("\xE2\x84\xAB"), std::string("\xC3\x85"));               // Angstrom sign -> Å
     CHECK_EQ(unicode::nfc("a\xCC\x9B\xCC\x80"), unicode::nfc("a\xCC\x80\xCC\x9B")); // marks reordered
     CHECK_EQ(unicode::nfc("\xE1\x84\x80\xE1\x85\xA1"), std::string("\xEA\xB0\x80"));  // Hangul L+V -> 가
-    std::string plain = "Bună ziua, Iași! Ce mai faci?";
+    std::string plain = "Greetings from Iași, Brăila and Timișoara!";
     CHECK_EQ(unicode::nfc(plain), plain);
     CHECK(unicode::is_letter(0x0219) && unicode::is_letter('Q') && !unicode::is_letter('1'));
     CHECK(unicode::is_number(0x0663) && unicode::is_number(0x2167));
