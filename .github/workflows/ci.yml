@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+# GitHub's runners have no GPU: CI builds and tests everything that runs on the
+# CPU (tokenizer against the official one, CPU backend, engine, scheduler,
+# server), compiles the CUDA backend for several architectures, and runs the
+# tests under AddressSanitizer. The GPU tests run locally (see README).
+
+jobs:
+  cpu:
+    name: ${{ matrix.os }} / CPU
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v5
+
+      # Only the tokenizer (11 MB) of Qwen3-0.6B: enough for the tokenizer tests.
+      - name: Fetch the tokenizer
+        shell: bash
+        run: |
+          mkdir -p models/Qwen3-0.6B
+          curl -fsSL -o models/Qwen3-0.6B/tokenizer.json https://huggingface.co/Qwen/Qwen3-0.6B/resolve/main/tokenizer.json
+
+      - name: Configure
+        run: cmake -S . -B build -DEMBER_CUDA=OFF -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build (warnings are errors)
+        run: cmake --build build --config Release --parallel
+
+      - name: Test
+        run: ctest --test-dir build -C Release --output-on-failure
+
+  sanitizers:
+    name: ubuntu / ASan + UBSan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Fetch the tokenizer
+        run: |
+          mkdir -p models/Qwen3-0.6B
+          curl -fsSL -o models/Qwen3-0.6B/tokenizer.json https://huggingface.co/Qwen/Qwen3-0.6B/resolve/main/tokenizer.json
+      - name: Build
+        run: |
+          cmake -S . -B build -DEMBER_CUDA=OFF -DEMBER_SANITIZE=ON -DCMAKE_BUILD_TYPE=Debug
+          cmake --build build --parallel
+      - name: Test
+        run: build/ember_tests
+
+  cuda:
+    name: ubuntu / CUDA compile (sm_75, sm_86, sm_89)
+    runs-on: ubuntu-latest
+    container: nvidia/cuda:12.8.1-devel-ubuntu24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Tools
+        run: apt-get update && apt-get install -y --no-install-recommends cmake g++ make
+      - name: Build
+        run: |
+          cmake -S . -B build -DCMAKE_CUDA_ARCHITECTURES="75;86;89" -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --parallel 4

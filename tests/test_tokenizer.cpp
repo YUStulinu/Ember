@@ -14,7 +14,7 @@ using namespace ember;
 namespace {
 
 const Tokenizer &qwen_tokenizer() {
-    test::require_model("Qwen3-0.6B");
+    test::require_tokenizer("Qwen3-0.6B");
     static const Tokenizer tok = Tokenizer::load(test::model_dir("Qwen3-0.6B") + "/tokenizer.json");
     return tok;
 }

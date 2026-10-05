@@ -375,9 +375,13 @@ void launch_paged(const AttentionArgs &a, cudaStream_t s) {
     switch (a.n_heads / a.n_kv) {
         case 1: paged_attention_kernel<D, 1><<<grid, kWarps * 32, 0, s>>>(a); break;
         case 2: paged_attention_kernel<D, 2><<<grid, kWarps * 32, 0, s>>>(a); break;
+        case 3: paged_attention_kernel<D, 3><<<grid, kWarps * 32, 0, s>>>(a); break;
         case 4: paged_attention_kernel<D, 4><<<grid, kWarps * 32, 0, s>>>(a); break;
+        case 5: paged_attention_kernel<D, 5><<<grid, kWarps * 32, 0, s>>>(a); break;
+        case 6: paged_attention_kernel<D, 6><<<grid, kWarps * 32, 0, s>>>(a); break;
+        case 7: paged_attention_kernel<D, 7><<<grid, kWarps * 32, 0, s>>>(a); break;
         case 8: paged_attention_kernel<D, 8><<<grid, kWarps * 32, 0, s>>>(a); break;
-        default: fail("query heads per kv head must be 1, 2, 4 or 8 (got {})", a.n_heads / a.n_kv);
+        default: fail("query heads per kv head must be 1..8 (got {})", a.n_heads / a.n_kv);
     }
 }
 

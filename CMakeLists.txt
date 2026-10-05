@@ -153,6 +153,7 @@ add_executable(ember_tests
   tests/test_model.cpp
   tests/test_cuda.cpp
   tests/test_engine.cpp
+  tests/test_server.cpp
 )
 target_link_libraries(ember_tests PRIVATE ember_server)
 target_include_directories(ember_tests PRIVATE tests)

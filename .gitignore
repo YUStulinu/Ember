@@ -23,3 +23,6 @@ __pycache__/
 *.swp
 .DS_Store
 Thumbs.db
+
+# Third-party binaries and models for comparisons
+/bench/external/

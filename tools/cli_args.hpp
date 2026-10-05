@@ -68,7 +68,6 @@ inline Options parse(int argc, char **argv, int first) {
         else if (a == "--kv-cache-mib") o.backend.kv_cache_bytes = static_cast<int64_t>(num() * 1048576.0);
         else if (a == "--kv-cache-tokens") o.backend.kv_cache_tokens = static_cast<int>(num());
         else if (a == "--no-cuda-graphs") o.backend.cuda_graphs = false;
-        else if (a == "--cublas") o.backend.cublas = true;
         else if (a == "--no-prefix-cache") o.engine.prefix_caching = false;
         else if (a == "--prefill-chunk") o.engine.max_prefill_chunk = static_cast<int>(num());
         else if (a == "-n" || a == "--max-tokens") o.max_tokens = static_cast<int>(num());

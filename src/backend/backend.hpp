@@ -49,7 +49,6 @@ struct BackendOptions {
     int64_t kv_cache_bytes = 0;     // explicit KV cache size; 0 = whatever memory_fraction leaves
     int kv_cache_tokens = 0;        // CPU backend: KV capacity in tokens; 0 = 8192
     bool cuda_graphs = true;
-    bool cublas = false;            // CUDA: use cuBLAS for large GEMMs (for comparison)
     int gpu = 0;
 };
 

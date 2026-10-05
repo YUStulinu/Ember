@@ -18,8 +18,8 @@ int64_t ModelConfig::parameters() const {
 ModelConfig ModelConfig::from_json(const json::Value &c, const json::Value *gen) {
     ModelConfig m;
     m.arch = c.get_string("model_type", "");
-    if (m.arch != "qwen3" && m.arch != "qwen2" && m.arch != "llama")
-        fail("unsupported model_type \"{}\" (supported: qwen3, qwen2, llama)", m.arch);
+    if (m.arch != "qwen3" && m.arch != "qwen2")
+        fail("unsupported model_type \"{}\" (supported: qwen3, qwen2)", m.arch);
     m.vocab_size = static_cast<int>(c["vocab_size"].as_int());
     m.hidden = static_cast<int>(c["hidden_size"].as_int());
     m.intermediate = static_cast<int>(c["intermediate_size"].as_int());

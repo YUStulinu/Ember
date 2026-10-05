@@ -37,7 +37,14 @@ std::string model_dir(const std::string &name) {
 }
 
 void require_model(const std::string &name) {
-    if (!file_exists(model_dir(name) + "/config.json")) throw Skip{"model " + name + " not downloaded"};
+    const std::string dir = model_dir(name);
+    if (!file_exists(dir + "/config.json") ||
+        !(file_exists(dir + "/model.safetensors") || file_exists(dir + "/model.safetensors.index.json")))
+        throw Skip{"model " + name + " not downloaded"};
+}
+
+void require_tokenizer(const std::string &name) {
+    if (!file_exists(model_dir(name) + "/tokenizer.json")) throw Skip{"tokenizer of " + name + " not downloaded"};
 }
 
 bool has_cuda() { return cuda_available(); }

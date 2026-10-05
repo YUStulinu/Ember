@@ -391,6 +391,7 @@ bool Engine::step() {
     size_t row = 0;
     int new_tokens = 0, prompt_computed = 0;
     std::vector<Sequence *> done;
+    std::vector<double> first_tokens;
     std::vector<FinishReason> reasons;
     for (size_t i = 0; i < batch_seqs_.size(); i++) {
         Sequence &s = *batch_seqs_[i];
@@ -404,8 +405,10 @@ bool Engine::step() {
         s.tokens.push_back(tok);
         s.generated++;
         new_tokens++;
-        if (s.generated == 1)
+        if (s.generated == 1) {
             s.first_token_ms = std::chrono::duration<double, std::milli>(Clock::now() - s.arrival).count();
+            first_tokens.push_back(s.first_token_ms);
+        }
         FinishReason reason = FinishReason::none;
         bool is_eos = std::find(eos_.begin(), eos_.end(), tok) != eos_.end() ||
                       std::find(s.req.stop_tokens.begin(), s.req.stop_tokens.end(), tok) != s.req.stop_tokens.end();
@@ -443,8 +446,8 @@ bool Engine::step() {
     ema(stats_.prefill_per_second, secs > 0 ? prompt_computed / secs : 0);
     stats_.last_batch_tokens = batch_.num_tokens();
     stats_.last_batch_seqs = batch_.num_seqs();
-    for (Sequence *s : batch_seqs_)
-        if (s->generated == 1 && s->first_token_ms > 0) ema(stats_.ttft_ms_avg, s->first_token_ms);
+    // (batch_seqs_ may point to sequences finished and freed above: use the copied values)
+    for (double ms : first_tokens) ema(stats_.ttft_ms_avg, ms);
     return true;
 }
 

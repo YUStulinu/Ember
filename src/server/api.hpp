@@ -19,6 +19,7 @@
 namespace ember {
 
 struct ApiContext {
+    ApiContext(Engine &e, const Tokenizer &t) : engine(e), tokenizer(t) {}
     Engine &engine;
     const Tokenizer &tokenizer;
     std::string model_name;

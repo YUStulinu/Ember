@@ -22,7 +22,8 @@ struct Skip {
 void add(const char *name, std::function<void()> fn);
 std::string source_dir();
 std::string model_dir(const std::string &name);  // <repo>/models/<name>
-void require_model(const std::string &name);     // throws Skip when missing
+void require_model(const std::string &name);     // weights present; throws Skip when missing
+void require_tokenizer(const std::string &name); // tokenizer.json present (enough for tokenizer tests)
 bool has_cuda();
 void require_cuda();
 uint64_t seed();
@@ -54,8 +55,8 @@ struct Registrar {
 
 #define CHECK_EQ(a, b)                                                                                     \
     do {                                                                                                   \
-        auto &&va_ = (a);                                                                                  \
-        auto &&vb_ = (b);                                                                                  \
+        const auto va_ = (a); /* a copy: the argument may refer into a temporary */                       \
+        const auto vb_ = (b);                                                                              \
         if (!(va_ == vb_))                                                                                 \
             throw ::ember::test::Failure{std::format("{}:{}: {} == {} failed", __FILE__, __LINE__, #a, #b)}; \
     } while (0)

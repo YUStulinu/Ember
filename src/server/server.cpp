@@ -29,7 +29,7 @@ int run_server(const cli::Options &opt) {
     Engine engine(*backend, eo, l.draft.get());
     engine.start();
 
-    ApiContext ctx{engine, tok};
+    ApiContext ctx(engine, tok);
     ctx.model_name = std::filesystem::path(opt.model).filename().string();
     if (ctx.model_name.empty()) ctx.model_name = opt.model;
     ctx.backend_name = backend->name();

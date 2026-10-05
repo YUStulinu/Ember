@@ -27,7 +27,11 @@ static constexpr int kSendFlags = 0;
 using sock_t = int;
 static const sock_t kBadSocket = -1;
 static void close_socket(sock_t s) { ::close(s); }
-static constexpr int kSendFlags = MSG_NOSIGNAL;
+#ifdef MSG_NOSIGNAL
+static constexpr int kSendFlags = MSG_NOSIGNAL;  // a write to a closed socket must not raise SIGPIPE
+#else
+static constexpr int kSendFlags = 0;             // macOS: SO_NOSIGPIPE is set on each socket instead
+#endif
 #endif
 
 namespace ember::http {
@@ -332,6 +336,9 @@ void Server::accept_loop() {
         }
         int one = 1;
         setsockopt(c, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<const char *>(&one), sizeof one);  // stream tokens promptly
+#ifdef SO_NOSIGPIPE
+        setsockopt(c, SOL_SOCKET, SO_NOSIGPIPE, &one, sizeof one);
+#endif
         char ip[INET6_ADDRSTRLEN] = "?";
         if (addr.ss_family == AF_INET) inet_ntop(AF_INET, &reinterpret_cast<sockaddr_in *>(&addr)->sin_addr, ip, sizeof ip);
         else inet_ntop(AF_INET6, &reinterpret_cast<sockaddr_in6 *>(&addr)->sin6_addr, ip, sizeof ip);

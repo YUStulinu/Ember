@@ -322,7 +322,7 @@ int cmd_kernels(const cli::Options &opt) {
 
 int cmd_bench(cli::Options opt) {
     int prompt_len = 512, gen = 128;
-    std::vector<int> batches = {1, 4, 8, 16, 32};
+    std::vector<int> batches = {1, 8, 32};
     for (size_t i = 0; i < opt.rest.size(); i++) {
         const std::string &a = opt.rest[i];
         if (a.rfind("prompt=", 0) == 0) prompt_len = std::atoi(a.c_str() + 7);
@@ -344,6 +344,9 @@ int cmd_bench(cli::Options opt) {
     SamplingParams greedy;
     greedy.temperature = 0;
 
+    struct Run {
+        double total = 0, first = 0, all_first = 0;  // ms: whole run, first token of any / of every request
+    };
     auto run = [&](int n_req, int plen, int ntok) {
         std::vector<std::shared_ptr<RequestStream>> streams;
         auto t0 = Clock::now();
@@ -356,19 +359,25 @@ int cmd_bench(cli::Options opt) {
             req.tag = "bench";
             streams.push_back(engine.submit(std::move(req)));
         }
-        int done = 0;
-        double first_token = 0;
+        int done = 0, started = 0;
+        std::vector<bool> got_first(streams.size(), false);
+        Run out;
         while (done < n_req) {
             engine.step();
-            for (auto &s : streams) {
+            for (size_t i = 0; i < streams.size(); i++) {
                 Delta d;
-                while (s->next(d, std::chrono::milliseconds(0))) {
-                    if (d.generated >= 1 && first_token == 0) first_token = since_ms(t0);
+                while (streams[i]->next(d, std::chrono::milliseconds(0))) {
+                    if (d.generated >= 1 && !got_first[i]) {
+                        got_first[i] = true;
+                        if (started++ == 0) out.first = since_ms(t0);
+                        if (started == n_req) out.all_first = since_ms(t0);
+                    }
                     if (d.finished) done++;
                 }
             }
         }
-        return std::pair<double, double>(since_ms(t0), first_token);
+        out.total = since_ms(t0);
+        return out;
     };
 
     std::printf("Ember benchmark: %s on %s (%s weights), median of 3 runs\n", opt.model.c_str(), l.backend->name().c_str(),
@@ -376,26 +385,27 @@ int cmd_bench(cli::Options opt) {
     // A laptop GPU changes clocks with temperature and power: warm up, then report medians.
     run(1, 64, 16);
     run(4, 64, 32);
-    auto median3 = [&](auto f) {
-        std::vector<std::pair<double, double>> v = {f(), f(), f()};
+    auto median = [](std::vector<double> v) {
         std::sort(v.begin(), v.end());
-        return v[1];
+        return v[v.size() / 2];
     };
-    auto [prefill_ms, ttft] = median3([&] { return run(1, prompt_len, 1); });
-    std::printf("  prefill, %d-token prompt          %8.0f tokens/s   (%.1f ms)\n", prompt_len, prompt_len / (prefill_ms / 1000),
-                prefill_ms);
-    std::vector<double> rates;
-    for (int i = 0; i < 3; i++) {
-        auto [ms, first] = run(1, 32, gen);
-        rates.push_back((gen - 1) / ((ms - first) / 1000));
-    }
-    std::sort(rates.begin(), rates.end());
-    std::printf("  decode, 1 sequence                %8.1f tokens/s   (%.2f ms per token)\n", rates[1], 1000.0 / rates[1]);
+    std::vector<double> prefill;
+    for (int i = 0; i < 3; i++) prefill.push_back(prompt_len / (run(1, prompt_len, 1).total / 1000));
+    std::printf("  prefill, %d-token prompt          %8.0f tokens/s\n", prompt_len, median(prefill));
+    // Generation throughput: tokens after the first, over the time after every
+    // request has its first token (what llama.cpp's batched-bench calls S_TG);
+    // end to end: all tokens over the whole run, prompts included.
+    std::printf("  %-34s %14s %14s %12s\n", "decode", "generation", "end to end", "first token");
     for (int b : batches) {
-        if (b <= 1) continue;
-        auto [ms, first] = median3([&] { return run(b, 64, gen); });
-        std::printf("  decode, %2d sequences x %d tokens %8.1f tokens/s   (first token after %.0f ms)\n", b, gen,
-                    b * gen / (ms / 1000), first);
+        std::vector<double> g, e, f;
+        for (int i = 0; i < 3; i++) {
+            Run r = run(b, b == 1 ? 32 : 64, gen);
+            g.push_back(b * (gen - 1) / ((r.total - r.all_first) / 1000));
+            e.push_back(b * gen / (r.total / 1000));
+            f.push_back(r.first);
+        }
+        std::printf("  %2d sequence%s x %d tokens%*s %10.1f t/s %10.1f t/s %9.0f ms\n", b, b == 1 ? " " : "s", gen,
+                    b == 1 ? 11 : 10, "", median(g), median(e), median(f));
     }
     EngineStats st = engine.stats();
     std::printf("  (%llu steps, %llu preemptions)\n", static_cast<unsigned long long>(st.steps),
