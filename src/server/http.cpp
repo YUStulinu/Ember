@@ -314,9 +314,18 @@ void Server::start(const std::string &host, int port) {
 void Server::stop() {
     if (listener_ == -1) return;
     stopping_ = true;
-    close_socket(static_cast<sock_t>(listener_));
-    listener_ = -1;
+    const sock_t s = static_cast<sock_t>(listener_);
+#ifdef _WIN32
+    close_socket(s);  // closesocket wakes a thread blocked in accept()
     if (acceptor_.joinable()) acceptor_.join();
+#else
+    // On Linux, close() does not wake a blocked accept(); shutdown() does. Close only
+    // after the acceptor has returned, so the descriptor cannot be reused under it.
+    ::shutdown(s, SHUT_RDWR);
+    if (acceptor_.joinable()) acceptor_.join();
+    close_socket(s);
+#endif
+    listener_ = -1;
     {
         std::lock_guard<std::mutex> lock(conns_mutex_);
         for (auto &w : conns_)
