@@ -319,8 +319,9 @@ void Server::stop() {
     close_socket(s);  // closesocket wakes a thread blocked in accept()
     if (acceptor_.joinable()) acceptor_.join();
 #else
-    // On Linux, close() does not wake a blocked accept(); shutdown() does. Close only
-    // after the acceptor has returned, so the descriptor cannot be reused under it.
+    // A blocked accept() is not woken portably (Linux needs shutdown(), macOS ignores it on a
+    // listening socket), so the acceptor polls with a timeout and sees stopping_ within 100 ms.
+    // Close only after it has returned, so the descriptor cannot be reused under it.
     ::shutdown(s, SHUT_RDWR);
     if (acceptor_.joinable()) acceptor_.join();
     close_socket(s);
@@ -336,6 +337,11 @@ void Server::stop() {
 
 void Server::accept_loop() {
     while (!stopping_) {
+#ifndef _WIN32
+        pollfd p{static_cast<sock_t>(listener_), POLLIN, 0};
+        if (poll(&p, 1, 100) <= 0) continue;  // timeout (or EINTR): re-check stopping_
+        if (stopping_) return;
+#endif
         sockaddr_storage addr{};
         socklen_t len = sizeof addr;
         sock_t c = ::accept(static_cast<sock_t>(listener_), reinterpret_cast<sockaddr *>(&addr), &len);
